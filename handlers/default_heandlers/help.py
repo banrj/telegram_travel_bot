@@ -6,5 +6,7 @@ from loader import bot
 
 @bot.message_handler(commands=['help'])
 def bot_help(message: Message):
-    text = [f'/{command} - {desk}' for command, desk in DEFAULT_COMMANDS]
-    bot.reply_to(message, '\n'.join(text))
+    text = ['/{command} - {desk}'.format(desk=desk, command=command) for command, desk in DEFAULT_COMMANDS]
+
+    bot.send_message(message.chat.id, '{phrase}{commands}'.format(phrase='Вот что я могу\n',
+                                                                  commands='\n'.join(text)))
