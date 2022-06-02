@@ -13,13 +13,13 @@ from utils.misc.photo_request import take_photo
 @bot.message_handler(commands=['lowprice', 'highprice'])
 def answer_low_price(message: Message) -> None:
     bot.set_state(message.from_user.id, Info.city)
-    bot.send_message(message.chat.id, 'Напишите в каком городе планируйте найти отель (на английском)')
+    bot.send_message(message.chat.id, 'Напишите в каком городе планируйте найти отель \n'
+                                      '(<u>на английском</u>)', parse_mode='html')
     with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
         if message.text == '/lowprice':
             data['filter'] = "PRICE"
         elif message.text == '/highprice':
             data['filter'] = "PRICE_HIGHEST_FIRST"
-    print(f'{data["filter"]}')
 
 
 @bot.message_handler(state=Info.city)
