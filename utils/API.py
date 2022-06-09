@@ -11,6 +11,8 @@ def request_to_api(url, querystring):
         response = requests.get(url, headers=headers, params=querystring, timeout=10)
         if response.status_code == requests.codes.ok:
             return response.text
-
+    # TODO базовые исключения не ловим
+    # TODO нужно как минимум отловить timeout
     except Exception as err:
+        # TODO принтов в коде быть недолжно логируйте ошибку
         print(err)

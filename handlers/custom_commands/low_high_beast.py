@@ -217,6 +217,7 @@ def take_data_in(callback) -> None:
         bot.send_message(callback.message.chat.id, '📆 Теперь выбери дату отъезда', reply_markup=calendar)
 
 
+# TODO длинный хендлер с большой вложенностью попробуйте его разбить
 @bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=2))
 def take_data_out(callback) -> None:
     with bot.retrieve_data(callback.from_user.id, callback.message.chat.id) as data:

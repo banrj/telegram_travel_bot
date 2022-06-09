@@ -16,6 +16,7 @@ def found_hotels(querystring: Dict) -> Optional[List[dict]]:
 
     pattern = '(?<=,)"results":.+?(?=,"pagination")'
     find = re.search(pattern, result)
+    # TODO функция у вас вернет NONE а выше пишите что Optional[List[dict]] допишите явно что может быть none
     if not find:
         return
     days = (datetime.datetime.strptime(data_out, '%Y-%m-%d') -
