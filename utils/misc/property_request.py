@@ -1,22 +1,23 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from utils.API import request_to_api
 import datetime
 import json
 import re
 
 
-def found_hotels(querystring: Dict) -> List[dict]:
+def found_hotels(querystring: Dict) -> Optional[List[dict]]:
     url = "https://hotels4.p.rapidapi.com/properties/list"
 
     querystring = querystring
     data_out = querystring['checkOut']
     data_in = querystring['checkIn']
-    print(querystring)
 
     result = str(request_to_api(url=url, querystring=querystring))
 
     pattern = '(?<=,)"results":.+?(?=,"pagination")'
     find = re.search(pattern, result)
+    if not find:
+        return
     days = (datetime.datetime.strptime(data_out, '%Y-%m-%d') -
             datetime.datetime.strptime(data_in, '%Y-%m-%d')).days
     find = json.loads(f"{{{find[0]}}}")
@@ -43,3 +44,23 @@ def found_hotels(querystring: Dict) -> List[dict]:
 
     return hotels
 
+
+def beast_hotels(querystring: Dict, start_limit: str, end_limit: str) -> Optional[List[dict]]:
+    count_limit = int(querystring["pageSize"])
+    querystring["pageSize"] = 25
+    raw_result = found_hotels(querystring=querystring)
+    if not raw_result:
+        return
+    start_limit = int(start_limit)
+    end_limit = int(end_limit)
+
+    hotels = list()
+    count = 0
+    for hotel in raw_result:
+        if count == count_limit:
+            break
+        if start_limit >= hotel['center_distance'] <= end_limit:
+            hotels.append(hotel)
+            count += 1
+
+    return hotels
