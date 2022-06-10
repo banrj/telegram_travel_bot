@@ -1,11 +1,18 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Union
 from utils.API import request_to_api
 import datetime
 import json
 import re
 
 
-def found_hotels(querystring: Dict) -> Optional[List[dict]]:
+def found_hotels(querystring: Dict) -> Union[None, List[dict]]:
+    """
+    Функция получает параметры для поиска отелей.
+    :param querystring: в параметры входит id города, кол-во отелей, даты заезда и отъезда, фильтр для поиска отелей,
+    локализация и валюта(подробнее https://rapidapi.com/apidojo/api/hotels4/)
+    :return: возвращает список отелей с их параметрами цены за ночь, расстояния до центра, названия отеля, адрес и
+    сколько юзеру обойдется полное проживание в этом отеле, посчитав кол-во дней
+    """
     url = "https://hotels4.p.rapidapi.com/properties/list"
 
     querystring = querystring
@@ -16,7 +23,6 @@ def found_hotels(querystring: Dict) -> Optional[List[dict]]:
 
     pattern = '(?<=,)"results":.+?(?=,"pagination")'
     find = re.search(pattern, result)
-    # TODO функция у вас вернет NONE а выше пишите что Optional[List[dict]] допишите явно что может быть none
     if not find:
         return
     days = (datetime.datetime.strptime(data_out, '%Y-%m-%d') -
@@ -46,7 +52,16 @@ def found_hotels(querystring: Dict) -> Optional[List[dict]]:
     return hotels
 
 
-def beast_hotels(querystring: Dict, start_limit: str, end_limit: str) -> Optional[List[dict]]:
+def beast_hotels(querystring: Dict, start_limit: str, end_limit: str) -> Union[None, List[dict]]:
+    """
+    Функция берет данные от функции found_hotels, но добавляя минимальную и максимальную цену, плюс отели теперь
+    выстраиваются по расстоянию до центра, после этого мы с помощью двух аргументов находим нужные нам отели, по
+    параметрам мин/макс дистанции от центра.
+    :param querystring: параметры отеля как в функции found_hotels, плюс мин/макс цена.
+    :param start_limit: минимальное расстояние.
+    :param end_limit: максимальное расстояние.
+    :return: список отелей(или None если нет совпадения), у каждого отеля есть свои параметры такие, же как found_hotels
+    """
     count_limit = int(querystring["pageSize"])
     querystring["pageSize"] = 25
     raw_result = found_hotels(querystring=querystring)

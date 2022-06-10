@@ -2,6 +2,10 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
 
 def button_hotels() -> ReplyKeyboardMarkup:
+    """
+     Создаёт клавиатуру и кнопки с цифрами для выбора кол-во отелей.
+     :return: клавиатуру с вариантами нажатия 1 2 3 4 5
+     """
     numbers = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
 
     button1 = KeyboardButton(text='1')
@@ -14,6 +18,10 @@ def button_hotels() -> ReplyKeyboardMarkup:
 
 
 def button_quantity_photo() -> ReplyKeyboardMarkup:
+    """
+    Создаёт клавиатуру и кнопки с цифрами для выбора кол-во фоток.
+    :return: клавиатуру с вариантами нажатия 2 3 4
+    """
     numbers = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
 
     button2 = KeyboardButton(text='2')

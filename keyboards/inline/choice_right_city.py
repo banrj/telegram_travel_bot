@@ -4,6 +4,11 @@ from typing import Optional
 
 
 def city_markup(name) -> Optional[InlineKeyboardMarkup]:
+    """
+    Создает список из инлайн кнопок с городами, которые совпали с названием города, которе получила функция.
+    :param name: названия города.
+    :return: возвращает список городов, города являются инлайн кнопками
+    """
     cities = found_cities(city_name=name)
     destinations = InlineKeyboardMarkup()
     if not cities:
@@ -12,17 +17,4 @@ def city_markup(name) -> Optional[InlineKeyboardMarkup]:
         destinations.add(InlineKeyboardButton(text=city['city_name'], callback_data='city_id{}'.format(
             city["destination_id"])))
     return destinations
-
-
-def city_markup_high(name) -> Optional[InlineKeyboardMarkup]:
-    cities = found_cities(city_name=name)
-    destinations = InlineKeyboardMarkup()
-    if not cities:
-        return
-    for city in cities:
-        destinations.add(InlineKeyboardButton(text=city['city_name'], callback_data='Hcity_id{}'.format(
-            city["destination_id"])))
-    return destinations
-
-
 
