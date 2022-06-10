@@ -9,10 +9,20 @@ from utils.misc.property_request import found_hotels
 from keyboards.inline.url_for_hotel import url_markup
 from utils.misc.photo_request import take_photo
 from datetime import date, timedelta
+from loguru import logger
 
 
 @bot.message_handler(commands=['lowprice', 'highprice', 'beastdeal'])
 def answer_low_price(message: Message) -> None:
+    """
+    Отвечает на команды и запрашивает город поиска отеля.
+    :param message: сообщение пользователя
+    """
+    logger.add('debug_in_command.log', level='DEBUG', format="{time} {level} {message}", rotation="5 KB",
+               compression="zip")
+    logger.debug('Error')
+    logger.info('Information message')
+    logger.warning('Warning')
     bot.set_state(message.from_user.id, Info.city)
     bot.send_message(message.chat.id, 'Напишите в каком городе планируйте найти отель \n'
                                       '(<u>на русском</u>)', parse_mode='html')
@@ -27,6 +37,10 @@ def answer_low_price(message: Message) -> None:
 
 @bot.message_handler(state=Info.city)
 def choice_city(message: Message) -> None:
+    """
+    Выводит список из инлайн кнопок, проверяет валидность названия города.
+    :param message: сообщение пользователя (название города)
+    """
     valid = city_markup(message.text)
     if valid:
         bot.send_message(message.from_user.id, 'Уточните пожалуйста!', reply_markup=valid)
@@ -39,6 +53,11 @@ def choice_city(message: Message) -> None:
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('city_id'))
 def check_callback(callback: CallbackQuery) -> None:
+    """
+    Получает ответ от выбранного города и сохраняет данные, запрашивает начальную цену(если beastdeal) или
+    кол-во отелей (lowprice or highprice)
+    :param callback: ответ от нажатия на инлайн кнопку(уточнение города)
+    """
     with bot.retrieve_data(callback.from_user.id, callback.message.chat.id) as data:
         data['city_id'] = callback.data[7:]
     bot.edit_message_text(chat_id=callback.message.chat.id, message_id=callback.message.id, text='Принято!')
@@ -56,6 +75,10 @@ def check_callback(callback: CallbackQuery) -> None:
 
 @bot.message_handler(state=Info.quantity_result)
 def check_quantity_hotels(message: Message) -> None:
+    """
+    Получает кол-во отелей, сохраняет эти данные, и спрашивает пользователя про фотографии.
+    :param message: сообщение пользователя (кол-во отелей)
+    """
     number = message.text
 
     if number.isdigit():
@@ -78,6 +101,11 @@ def check_quantity_hotels(message: Message) -> None:
 
 @bot.message_handler(state=Info.min_price)
 def check_quantity_hotels(message: Message) -> None:
+    """
+    Функция работает только при bestdeal, получает мин цену, обрабатывает ее и сохраняет.
+    Спрашивает у пользователя макс цену.
+    :param message: сообщение пользователя (минимальная цена отеля)
+    """
     min_price = message.text
     if min_price.isdigit():
         if int(min_price) > 0:
@@ -98,6 +126,11 @@ def check_quantity_hotels(message: Message) -> None:
 
 @bot.message_handler(state=Info.max_price)
 def check_quantity_hotels(message: Message) -> None:
+    """
+    Функция работает только при bestdeal, получает макс цену, обрабатывает ее и сохраняет.
+    Спрашивает у пользователя минимальное расстояние до центра.
+    :param message: сообщение пользователя (максимальная цена отеля)
+    """
     max_price = message.text
     if max_price.isdigit():
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
@@ -118,6 +151,11 @@ def check_quantity_hotels(message: Message) -> None:
 
 @bot.message_handler(state=Info.min_distance_to_center)
 def check_quantity_hotels(message: Message) -> None:
+    """
+    Функция работает только при bestdeal, получает минимальное расстояние, обрабатывает ее и сохраняет.
+    Спрашивает у пользователя максимальное расстояние до центра.
+    :param message: сообщение пользователя (минимальное расстояние)
+    """
     min_distance = message.text
     if min_distance.isdigit():
         if int(min_distance) > -1:
@@ -138,6 +176,11 @@ def check_quantity_hotels(message: Message) -> None:
 
 @bot.message_handler(state=Info.max_distance_to_center)
 def check_quantity_hotels(message: Message) -> None:
+    """
+    Функция работает только при bestdeal, получает максимальное расстояние, обрабатывает ее и сохраняет.
+    Спрашивает у пользователя кол-во отелей.
+    :param message: сообщение пользователя (максимальное расстояние)
+    """
     max_distance = message.text
     if max_distance.isdigit():
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
@@ -160,6 +203,12 @@ def check_quantity_hotels(message: Message) -> None:
 
 @bot.message_handler(state=Info.photo)
 def check_photo(message: Message) -> None:
+    """
+    Получает сообщение, проверяет его и сохраняет значение.
+    Если ответ (да) спрашивает кол-во фотографий.
+    Если ответ (нет) спрашивает дату заезда.
+    :param message: пользователь отвечает, нужно ли ему вывести фотографии(да/нет)
+    """
     if message.text.title().startswith('Да'):
         bot.send_message(message.chat.id, 'Сколько фотографий хотите увидеть на один отель\n'
                                           '<b>не больше 4 фотографий, но не меньше 2</b>',
@@ -170,7 +219,8 @@ def check_photo(message: Message) -> None:
     elif message.text.title().startswith('Нет'):
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['photo'] = False
-        calendar, step = DetailedTelegramCalendar(calendar_id=1).build()
+            data['quantity_photo'] = 0
+        calendar, step = DetailedTelegramCalendar(calendar_id=1, min_date=date.today()).build()
         bot.send_message(message.chat.id, 'Нет, так нет 😕')
         bot.send_message(message.chat.id, '📆 Теперь выберите дату заезда', reply_markup=calendar)
     else:
@@ -181,6 +231,12 @@ def check_photo(message: Message) -> None:
 
 @bot.message_handler(state=Info.quantity_photo)
 def check_quantity_photo(message: Message) -> None:
+    """
+    Получает число фотографий, проверяет ее и сохраняет.
+    Запрашивает дату заезда.
+    :param message: число фотографий
+    """
+
     number = message.text
     if number.isdigit():
         if 5 > int(number) > 1:
@@ -200,6 +256,12 @@ def check_quantity_photo(message: Message) -> None:
 
 @bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=1))
 def take_data_in(callback) -> None:
+    """
+    Получает дату заезда, проверяет ее и сохраняет.
+    Запрашивает дату отъезда.
+    :param callback: ответ на нажатия инлайн календаря
+    """
+
     result, key, step = DetailedTelegramCalendar(calendar_id=1,  min_date=date.today()).process(callback.data)
     if not result and key:
         bot.edit_message_text("📆 Выберите {}".format(LSTEP[step]),
@@ -217,9 +279,13 @@ def take_data_in(callback) -> None:
         bot.send_message(callback.message.chat.id, '📆 Теперь выбери дату отъезда', reply_markup=calendar)
 
 
-# TODO длинный хендлер с большой вложенностью попробуйте его разбить
 @bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=2))
 def take_data_out(callback) -> None:
+    """
+    Получает дату отъезда, проверяет ее и сохраняет.
+    Выводит отели.
+    :param callback: ответ на нажатия инлайн календаря
+    """
     with bot.retrieve_data(callback.from_user.id, callback.message.chat.id) as data:
         min_out_date = data['data_in'] + timedelta(days=1)
     result, key, step = DetailedTelegramCalendar(calendar_id=2, min_date=min_out_date).process(callback.data)
@@ -244,24 +310,39 @@ def take_data_out(callback) -> None:
         if data['filter'] == "DISTANCE_FROM_LANDMARK":
             querystring["priceMin"] = data['min_price']
             querystring["priceMax"] = data['max_price']
-        hotels = found_hotels(querystring=querystring)
-        if not hotels or len(hotels) == 0:
-            bot.send_message(callback.message.chat.id, 'Мы не смогли найти отели по заданным параметрам, '
-                                                       'попробуйте еще раз поменяв данные')
-            return
-        elif len(hotels) < int(data['quantity_hotels']):
-            bot.send_message(callback.message.chat.id, 'Это все, что мы смогли найти для тебя')
-        elif len(hotels) == int(data['quantity_hotels']):
-            bot.send_message(callback.message.chat.id, 'Вот отели которые тебе подойдут')
-        for hotel in hotels:
-            if data['photo']:
-                bot.send_media_group(callback.message.chat.id, take_photo(hotel['hotel_id'], data['quantity_photo']))
-            bot.send_message(callback.message.chat.id, '📝 Название отеля: {name}\n'
-                                                       '🚕 Адреc: {address}\n'
-                                                       '👣 Расстояние до центра: {center}\n'
-                                                       '💸 Цена за ночь:{price}\n'
-                                                       '💵 {total_price}'.format(
-                                                        name=hotel['hotel_name'], address=hotel['address'],
-                                                        center=hotel['center_distance'], price=hotel['price'],
-                                                        total_price=hotel['total_price']),
-                             reply_markup=url_markup(hotel['url']))
+
+        total_answer(parameters=querystring, callback=callback, photo=data['photo'], count_photo=data['quantity_photo'])
+
+
+@logger.catch
+def total_answer(parameters: dict, callback: CallbackQuery, photo, count_photo) -> None:
+    """
+    Получает все сохраненные данные за весь сценарий и выводит отели, проверяет получиться ли найти нужное
+    кол-во отелей, и выдает сообщение в каждом из возможных вариантов.
+    :param parameters: параметры для property_request
+    :param callback: коллбек прошлой функции.
+    :param photo: нужно ли фото или нет.
+    :param count_photo: кол-во фотографий
+    """
+    hotels = found_hotels(querystring=parameters)
+    if not hotels or len(hotels) == 0:
+        bot.send_message(callback.message.chat.id, 'Мы не смогли найти отели по заданным параметрам, '
+                                                   'попробуйте еще раз поменяв данные')
+        return
+    elif len(hotels) < int(parameters['pageSize']):
+        bot.send_message(callback.message.chat.id, 'Это все, что мы смогли найти для тебя')
+    elif len(hotels) == int(parameters['pageSize']):
+        bot.send_message(callback.message.chat.id, 'Вот отели которые тебе подойдут')
+    for hotel in hotels:
+
+        if photo:
+            bot.send_media_group(callback.message.chat.id, take_photo(hotel['hotel_id'], count_photo))
+        bot.send_message(callback.message.chat.id, '📝 Название отеля: {name}\n'
+                                                   '🚕 Адреc: {address}\n'
+                                                   '👣 Расстояние до центра: {center}\n'
+                                                   '💸 Цена за ночь:{price}\n'
+                                                   '💵 {total_price}'.format(
+                                                    name=hotel['hotel_name'], address=hotel['address'],
+                                                    center=hotel['center_distance'], price=hotel['price'],
+                                                    total_price=hotel['total_price']),
+                         reply_markup=url_markup(hotel['url']))

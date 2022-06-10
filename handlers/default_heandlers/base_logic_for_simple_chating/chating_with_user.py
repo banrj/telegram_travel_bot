@@ -6,6 +6,10 @@ import random
 
 @bot.message_handler(content_types=['text'])
 def logic(message: Message) -> None:
+    """
+    Тут прописана базовая логика для поверхностного общения с ботом.
+    :param message: сообщение пользователя
+    """
     simple_welcome_en: List[str] = ['Hi', 'Hello', 'Hey']
     simple_welcome_ru: List[str] = ['Привет', 'Здравствуй', 'Здравствуйте', 'Добро пожаловать']
     if message.text.title() in simple_welcome_en:
