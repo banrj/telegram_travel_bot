@@ -21,10 +21,8 @@ def take_photo(photo_id: str, quantity: str) -> List[InputMediaPhoto]:
     for photo in find:
         if count == int(quantity):
             break
-        elif count == 0:
-            photo = re.sub(r'{size}', 'z', photo)
-        elif count == 1 or count == 2 or count == 3:
-            photo = re.sub(r'{size}', 'y', photo)
+        photo = re.sub(r'{size}', 'z', photo)
+
         photos.append(InputMediaPhoto(media=photo[1:-1]))
         count += 1
     return photos

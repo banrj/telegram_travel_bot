@@ -1,38 +1,59 @@
 from loader import bot
+from telebot.apihelper import ApiTelegramException
 from telebot.types import Message, CallbackQuery
 from states.states_for_custom_commands import Info
 from keyboards.inline.choice_right_city import city_markup
 from keyboards.reply.choice_quantity import button_hotels, button_quantity_photo
 from keyboards.reply.choice_photo import button_photo
 from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
-from utils.misc.property_request import found_hotels
+from utils.misc.property_request import found_hotels, beast_hotels
 from keyboards.inline.url_for_hotel import url_markup
 from utils.misc.photo_request import take_photo
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from loguru import logger
+from database.database_commands import insert_in_requests, insert_in_commands, insert_in_results, select_user_history
 
 
 @bot.message_handler(commands=['lowprice', 'highprice', 'beastdeal'])
-def answer_low_price(message: Message) -> None:
+def answer_for_search_commands(message: Message) -> None:
     """
     Отвечает на команды и запрашивает город поиска отеля.
     :param message: сообщение пользователя
     """
-    logger.add('debug_in_command.log', level='DEBUG', format="{time} {level} {message}", rotation="5 KB",
+    logger.add('debug_in_command.log', level='DEBUG', format="{time} {level} {message}", rotation="100 KB",
                compression="zip")
-    logger.debug('Error')
-    logger.info('Information message')
-    logger.warning('Warning')
+    logger.info(f'Users start going request {message.text}')
+
     bot.set_state(message.from_user.id, Info.city)
     bot.send_message(message.chat.id, 'Напишите в каком городе планируйте найти отель \n'
                                       '(<u>на русском</u>)', parse_mode='html')
     with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
+        data['min_price'] = None
+        data['max_price'] = None
+        data['min_distance'] = None
+        data['max_distance'] = None
         if message.text == '/lowprice':
             data['filter'] = "PRICE"
         elif message.text == '/highprice':
             data['filter'] = "PRICE_HIGHEST_FIRST"
         elif message.text == '/beastdeal':
             data['filter'] = "DISTANCE_FROM_LANDMARK"
+
+    with bot.retrieve_data(message.from_user.id, message.chat.id) as date_base:
+        date_base['time_request'] = datetime.now()
+        date_base['user'] = message.from_user.id
+        date_base['command'] = message.text[1:]
+
+
+@bot.message_handler(commands=['history'])
+def answer_history(message: Message) -> None:
+    """
+    Хендлер отвечающий только, на команду history
+    больше узнать об этой команде можно, в функции select_user_history.
+    :param message: сообщение пользователя
+
+    """
+    select_user_history(message)
 
 
 @bot.message_handler(state=Info.city)
@@ -44,7 +65,8 @@ def choice_city(message: Message) -> None:
     valid = city_markup(message.text)
     if valid:
         bot.send_message(message.from_user.id, 'Уточните пожалуйста!', reply_markup=valid)
-
+        with bot.retrieve_data(message.from_user.id, message.chat.id) as date_base:
+            date_base['city_name'] = message.text.title()
     else:
         bot.send_message(message.chat.id, 'Я такого города не знаю, попробуйте еще раз!\n'
                                           'Введите город')
@@ -150,7 +172,7 @@ def check_quantity_hotels(message: Message) -> None:
 
 
 @bot.message_handler(state=Info.min_distance_to_center)
-def check_quantity_hotels(message: Message) -> None:
+def take_min_distance(message: Message) -> None:
     """
     Функция работает только при bestdeal, получает минимальное расстояние, обрабатывает ее и сохраняет.
     Спрашивает у пользователя максимальное расстояние до центра.
@@ -175,7 +197,7 @@ def check_quantity_hotels(message: Message) -> None:
 
 
 @bot.message_handler(state=Info.max_distance_to_center)
-def check_quantity_hotels(message: Message) -> None:
+def take_max_distance(message: Message) -> None:
     """
     Функция работает только при bestdeal, получает максимальное расстояние, обрабатывает ее и сохраняет.
     Спрашивает у пользователя кол-во отелей.
@@ -286,6 +308,11 @@ def take_data_out(callback) -> None:
     Выводит отели.
     :param callback: ответ на нажатия инлайн календаря
     """
+    with bot.retrieve_data(callback.from_user.id, callback.message.chat.id) as date_base:
+        database_param = {
+            'user': date_base['user'], 'time': date_base['time_request'], 'command': date_base['command'],
+            'city_name': date_base['city_name']
+        }
     with bot.retrieve_data(callback.from_user.id, callback.message.chat.id) as data:
         min_out_date = data['data_in'] + timedelta(days=1)
     result, key, step = DetailedTelegramCalendar(calendar_id=2, min_date=min_out_date).process(callback.data)
@@ -297,46 +324,70 @@ def take_data_out(callback) -> None:
     elif result:
         with bot.retrieve_data(callback.from_user.id, callback.message.chat.id) as data:
             data['data_out'] = result
+
         bot.edit_message_text("Твой выбор {}".format(result),
                               callback.message.chat.id,
                               callback.message.message_id)
+
         bot.delete_state(callback.from_user.id, callback.message.chat.id)
 
         bot.send_message(callback.message.chat.id, 'Cупер, сейчас покажу отели, которые тебе подойдут!')
         querystring = {"destinationId": data['city_id'],
-                       "pageNumber": "1", "pageSize": data['quantity_hotels'],
-                       "checkIn": str(data['data_in']), "checkOut": str(data['data_out']),
-                       "adults1": "1", "sortOrder": data['filter'], "locale": "ru_RU", "currency": "USD"}
-        if data['filter'] == "DISTANCE_FROM_LANDMARK":
-            querystring["priceMin"] = data['min_price']
-            querystring["priceMax"] = data['max_price']
+                       "pageNumber": "1", "pageSize": data['quantity_hotels'], "priceMin": data['min_price'],
+                       "priceMax": data['max_price'], "checkIn": str(data['data_in']),
+                       "checkOut": str(data['data_out']), "adults1": "1", "sortOrder": data['filter'],
+                       "locale": "ru_RU", "currency": "USD"}
 
-        total_answer(parameters=querystring, callback=callback, photo=data['photo'], count_photo=data['quantity_photo'])
+        total_answer(parameters=querystring, callback=callback, photo=data['photo'], count_photo=data['quantity_photo'],
+                     min_distance=data['min_distance'], max_distance=data['max_distance'], database=database_param)
 
 
 @logger.catch
-def total_answer(parameters: dict, callback: CallbackQuery, photo, count_photo) -> None:
+def total_answer(parameters: dict, callback: CallbackQuery, photo: bool, count_photo: str, database: dict,
+                 min_distance: str = None, max_distance: str = None) -> None:
     """
     Получает все сохраненные данные за весь сценарий и выводит отели, проверяет получиться ли найти нужное
     кол-во отелей, и выдает сообщение в каждом из возможных вариантов.
     :param parameters: параметры для property_request
     :param callback: коллбек прошлой функции.
+    :param database: данные полученные на протяжение всего сценария(для базы данных)
+    :param min_distance: минимальное расстояние до центра(Optional)
+    :param max_distance: максимальное расстояние до центра(Optional)
     :param photo: нужно ли фото или нет.
     :param count_photo: кол-во фотографий
     """
-    hotels = found_hotels(querystring=parameters)
+    if parameters["sortOrder"] == "DISTANCE_FROM_LANDMARK":
+        hotels = beast_hotels(querystring=parameters, start_limit=min_distance, end_limit=max_distance)
+    else:
+        hotels = found_hotels(querystring=parameters)
     if not hotels or len(hotels) == 0:
         bot.send_message(callback.message.chat.id, 'Мы не смогли найти отели по заданным параметрам, '
                                                    'попробуйте еще раз поменяв данные')
+        logger.info('Fail request, will not add in database')
         return
     elif len(hotels) < int(parameters['pageSize']):
         bot.send_message(callback.message.chat.id, 'Это все, что мы смогли найти для тебя')
+        parameters["pageSize"] = len(hotels)
     elif len(hotels) == int(parameters['pageSize']):
         bot.send_message(callback.message.chat.id, 'Вот отели которые тебе подойдут')
+
+    request_id = insert_in_requests(user_id=database['user'], time=database['time'])
+    result_id = insert_in_commands(request_id=request_id, command_name=database['command'],
+                                   city_name=database['city_name'], data_in=str(parameters["checkIn"]),
+                                   data_out=str(parameters['checkOut']), quantity=parameters["pageSize"],
+                                   min_price=parameters['priceMin'], max_price=parameters['priceMax'],
+                                   min_distance=min_distance, max_distance=max_distance)
+
     for hotel in hotels:
 
         if photo:
-            bot.send_media_group(callback.message.chat.id, take_photo(hotel['hotel_id'], count_photo))
+            try:
+                bot.send_media_group(callback.message.chat.id, take_photo(hotel['hotel_id'], count_photo))
+            except ApiTelegramException as err:
+                logger.exception(err)
+                bot.send_message(callback.message.chat.id, 'К сожалению, мы не смогли найти фотографий для этого отеля.'
+                                                           'Уточняйте на сайте')
+
         bot.send_message(callback.message.chat.id, '📝 Название отеля: {name}\n'
                                                    '🚕 Адреc: {address}\n'
                                                    '👣 Расстояние до центра: {center}\n'
@@ -346,3 +397,8 @@ def total_answer(parameters: dict, callback: CallbackQuery, photo, count_photo) 
                                                     center=hotel['center_distance'], price=hotel['price'],
                                                     total_price=hotel['total_price']),
                          reply_markup=url_markup(hotel['url']))
+        insert_in_results(command_id=result_id, hotel=hotel['hotel_name'], address=hotel['address'],
+                          price=hotel['price'], total_price=hotel['total_price'],
+                          distance=hotel['center_distance'], url=hotel['url'])
+
+

@@ -75,7 +75,8 @@ def beast_hotels(querystring: Dict, start_limit: str, end_limit: str) -> Union[N
     for hotel in raw_result:
         if count == count_limit:
             break
-        if start_limit >= hotel['center_distance'] <= end_limit:
+        hotels_variant = float(hotel['center_distance'][:-3].replace(',', '.'))
+        if start_limit >= hotels_variant <= end_limit:
             hotels.append(hotel)
             count += 1
 

@@ -12,7 +12,7 @@ def request_to_api(url, querystring) -> str:
     :arg url: ссылка для запроса.
     :arg querystring: параметры запроса подробнее на самом сайте Rapid https://rapidapi.com/apidojo/api/hotels4/
     """
-    logger.add('debug_main_api.log', level='DEBUG', format="{time} {level} {message}", rotation="5 KB",
+    logger.add('debug_main_api.log', level='DEBUG', format="{time} {level} {message}", rotation="45 KB",
                compression="zip")
     headers = {
         "X-RapidAPI-Host": "hotels4.p.rapidapi.com",

@@ -3,7 +3,7 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from typing import Optional
 
 
-def city_markup(name) -> Optional[InlineKeyboardMarkup]:
+def city_markup(name: str) -> Optional[InlineKeyboardMarkup]:
     """
     Создает список из инлайн кнопок с городами, которые совпали с названием города, которе получила функция.
     :param name: названия города.
